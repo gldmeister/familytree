@@ -1961,6 +1961,9 @@
     -webkit-font-smoothing: auto;
     -moz-osx-font-smoothing: auto;
   }
+  #loginModal {
+    outline: 1px solid red;  /* Для проверки области контейнера */
+  }
   .accent-auto {
     accent-color: auto;
   }

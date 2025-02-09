@@ -6,6 +6,7 @@
     <title>Создание семейного древа</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <script src="/static/main.js" defer></script>
 </head>
 <body class="bg-gray-100 text-gray-800">
     <header class="bg-blue-600 text-white py-4 shadow-lg">
@@ -20,9 +21,9 @@
     
             <!-- Правая часть навигации -->
             <div class="flex justify-end">
-                <a href="#" class="bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100 hover:shadow-md transition">
+                <button id="loginButton" data-modal-target="loginModal" data-modal-toggle="loginModal" class="bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100 hover:shadow-md transition">
                     Вход/Регистрация
-                </a>
+                </button>
             </div>
         </nav>
     </header>
@@ -50,5 +51,7 @@
             </section>
         </div>
     </main>
+
+    <script src="/public/static/main.js" defer></script>
 </body>
 </html>
