@@ -1,0 +1,29 @@
+<!-- login_modal.html -->
+<div id="loginModal" tabindex="-1" aria-hidden="true" class="modal hidden bg-opacity-50 z-50 overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 justify-center items-center w-full h-screen flex">
+    <div class="modalContent relative h-auto p-4 transform scale-90 opacity-0 transition-all duration-300">
+        <div class="relative w-full md:min-w-md md:max-w-md lg:min-w-lg lg:max-w-lg xl:min-w-xl xl:max-w-xl bg-white rounded-lg shadow-lg p-4">
+            <div class="flex items-center justify-between p-4 border-b rounded-t">
+                <h2 class="text-xl font-bold">Вход</h2>
+                <button class="closeModal cursor-pointer text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="loginForm" method="POST" class="space-y-4 p-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">Логин</label>
+                    <input type="text" id="login_username_input" name="username" class="mt-1 block w-full border border-gray-300 rounded-lg p-2 text-center" required="" autocomplete="off">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Пароль</label>
+                    <input type="password" id="login_password_input" name="password" class="mt-1 block w-full border border-gray-300 rounded-lg p-2 text-center" required="" autocomplete="off">
+                </div>
+                <button id="enter_to_account" type="submit" class="cursor-pointer mt-4 w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700">Войти</button>
+            </form>
+            <p class="mb-4 text-center text-sm">
+                <button id="register_button" data-modal-target="registerModal" data-modal-toggle="registerModal" class="cursor-pointer text-blue-500 hover:underline">Зарегистрироваться</button>
+            </p>
+        </div>
+    </div>
+</div>
