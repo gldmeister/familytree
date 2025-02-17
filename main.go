@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"familytree/internal/auth"
 	"familytree/internal/database"
 	"familytree/internal/handlers"
 	"log"
@@ -23,16 +24,25 @@ func main() {
 
 	// Обработчики маршрутов
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", handlers.HomeHandler)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		http.ServeFile(w, r, "public/index.html")
+	})
 	mux.HandleFunc("/register", handlers.RegisterHandler)
 	mux.HandleFunc("/login", handlers.LoginHandler)
 	mux.HandleFunc("/api/modals", handlers.GetModalFiles)
+
+	// 🔹 Добавляем защищённый API
+	mux.HandleFunc("/user", auth.AuthMiddleware(handlers.UserHandler))
 
 	// Разрешаем CORS для всех запросов
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"}, // Разрешаем запросы с любого домена
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}).Handler(mux)
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"familytree/internal/auth"
 	"familytree/internal/models"
 	"io"
 	"log"
@@ -38,6 +39,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
+
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -68,10 +70,21 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Генерируем JWT
+	token, err := auth.GenerateToken(user.Username)
+	if err != nil {
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		return
+	}
+
 	// Авторизация успешна
 	log.Println("✅ Успешный вход:", user.Username)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"username": user.Username})
+	// Отправляем токен и username клиенту
+	json.NewEncoder(w).Encode(map[string]string{
+		"token":    token,
+		"username": user.Username,
+	})
 }
 
 // 🔹 Функция регистрации

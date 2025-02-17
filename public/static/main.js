@@ -1,5 +1,89 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    // Формы
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+
+    // Кнопки
+    const main_login_button = document.getElementById("main_login_button");
+    const enter_to_account = document.getElementById("enter_to_account");
+
+    // Панели
+    const userPanel = document.getElementById("user_panel");
+
+    //Модальные контейнеры
     const modalContainer = document.getElementById("modal_windows");
+
+    // ✅ Проверяем авторизацию
+    if (localStorage.getItem("token")) {
+        fetchUserData();
+    } else {
+        updateUserInterface();
+    }
+
+    function updateUserInterface() {
+        console.log("Проверка")
+        const username = localStorage.getItem("username");
+        if (username) {
+            // Если авторизован → показываем имя и "Выйти"
+            userPanel.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <span class="font-bold">${username}</span>
+                    <button id="logout_btn" class="cursor-pointer bg-red-500 text-white px-3 py-1 rounded">Выйти</button>
+                </div>
+            `;
+            document.getElementById("logout_btn").addEventListener("click", logout);
+        } else {
+            // Если не авторизован → показываем "Войти"
+            userPanel.innerHTML = `
+                <button id="main_login_button" data-modal-target="loginModal" data-modal-toggle="loginModal" class="cursor-pointer bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100 hover:shadow-md transition">
+                    Войти в аккаунт
+                </button>
+            `;
+            document.getElementById("main_login_button").addEventListener("click", () => {
+                openModal("loginModal");
+            });
+        }
+    }
+
+    async function fetchUserData() {
+        console.log("📡 Отправляем запрос на сервер...");
+        const token = localStorage.getItem("token");
+    
+        if (!token) {
+            console.log("❌ Токен отсутствует, пользователь не авторизован.");
+            return;
+        }
+
+        try {
+            const response = await fetch("http://127.0.0.1:8080/user", { // Указываем полный URL
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` // Должен быть "Bearer TOKEN"
+                }
+            });
+    
+            if (!response.ok) {
+                throw new Error("Ошибка получения данных пользователя: " + response.statusText);
+            }
+    
+            const data = await response.json();
+            console.log("✅ Данные пользователя получены:", data);
+    
+            // Сохраняем имя пользователя
+            localStorage.setItem("username", data.username);
+            updateUserInterface(); // Обновляем UI
+    
+        } catch (error) {
+            console.error("❌ Ошибка при загрузке данных пользователя:", error);
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem("token");
+        localStorage.removeItem("username");
+        updateUserInterface();
+    }
 
     // Получаем список всех модалок с сервера
     async function getModalFiles() {
@@ -38,7 +122,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await loadModals(); // Загружаем модалки динамически
 
-
     function showOverlay() {
         const overlay = document.createElement("div");
         overlay.className = "bg-gray-900/50 dark:bg-gray-900/80 fixed inset-0 z-40";
@@ -65,7 +148,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             setTimeout(() => {
                 modalContent.classList.remove("opacity-0", "scale-90");
                 modalContent.classList.add("opacity-100", "scale-100");
-            }, 10);
+            }, 200);
         }
         
         // Блокируем прокрутку страницы
@@ -91,8 +174,61 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Ожидаем загрузки модалок, затем назначаем обработчики
     setTimeout(() => {
-        document.getElementById("loginButton").addEventListener("click", () => {
-            openModal("loginModal")
+        if (main_login_button) {
+            main_login_button.addEventListener("click", () => {
+                openModal("loginModal")
+            });
+        }
+        document.getElementById("enter_to_account").addEventListener("click", async () => {
+            console.log("🔥 Кнопка ВОЙТИ нажата!");
+    
+            const usernameInput = document.getElementById("login_username_input");
+            const passwordInput = document.getElementById("login_password_input");
+    
+            // Проверяем, что оба поля заполнены
+            if (!usernameInput.value.trim() || !passwordInput.value.trim()) {
+                alert("Введите логин и пароль!");
+                return;
+            }
+    
+            const userData = {
+                username: usernameInput.value.trim(),
+                password: passwordInput.value.trim()
+            };
+            console.log("📡 Отправляем данные:", userData);
+    
+            try {
+                const response = await fetch("http://127.0.0.1:8080/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(userData)
+                });
+    
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error("Ошибка входа: " + errorText);
+                }
+    
+                console.log("✅ Сервер ответил успешно!");
+    
+                const result = await response.json();
+                console.log("✅ Авторизация успешна:", result);
+    
+                // Сохраняем токен и имя пользователя
+                localStorage.setItem("token", result.token);
+                localStorage.setItem("username", result.username);
+                console.log("token: ", localStorage.getItem("token"));
+                console.log("token: ", localStorage.getItem("username"));
+                
+                console.log("Закрываем модальное окно входа...");
+                closeModal("loginModal"); // Закрываем модалку
+                await fetchUserData();
+                updateUserInterface(); // Обновляем UI
+    
+            } catch (error) {
+                console.error("❌ Ошибка при авторизации:", error);
+                alert("Ошибка при авторизации: " + error.message);
+            }
         });
         document.querySelectorAll(".closeModal").forEach((button) => {
             button.addEventListener("click", () => {
@@ -109,8 +245,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             registerModal.classList.remove("hidden");
             loginModal.setAttribute("aria-hidden", "false");
             registerModal.setAttribute("aria-hidden", "false");
+
+            const modalContent = registerModal.querySelector(".modalContent");
             registerModal.querySelector(".modalContent").classList.remove("opacity-0", "scale-90");
-            registerModal.querySelector(".modalContent").add("opacity-100", "scale-100");
+            registerModal.querySelector(".modalContent").classList.add("opacity-100", "scale-100");
         });
         document.getElementById("back_to_login_button").addEventListener("click", () => {
             const registerModal = document.getElementById("registerModal");
@@ -122,7 +260,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         // 📌 **Добавляем обработчик для регистрации**
-        const registerForm = document.getElementById("registerForm");
         if (registerForm) {
             registerForm.addEventListener("submit", async (event) => {
                 event.preventDefault();
@@ -156,44 +293,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 } catch (error) {
                     console.error("Ошибка при регистрации:", error);
                     alert("Ошибка при регистрации: " + error.message);
-                }
-            });
-        }
-
-        const loginForm = document.getElementById("loginForm");
-        if (loginForm) {
-            loginForm.addEventListener("submit", async (event) => {
-                event.preventDefault();
-
-                const formData = new FormData(loginForm);
-                const userData = {
-                    username: formData.get("username"),
-                    password: formData.get("password")
-                };
-                console.log("📡 Отправляем данные на сервер:", userData)
-
-                try {
-                    const response = await fetch("http://127.0.0.1:8080/login", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(userData)
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error("Ошибка входа: " + errorText);
-                    }
-
-                    const result = await response.json();
-                    localStorage.setItem("username", result.username); // ✅ Сохраняем имя пользователя
-
-                    //updateAuthUI(); // ✅ Обновляем интерфейс
-
-                    closeModal("loginModal");
-
-                } catch (error) {
-                    console.error("Ошибка при авторизации:", error);
-                    alert("Ошибка при авторизации: " + error.message);
                 }
             });
         }
