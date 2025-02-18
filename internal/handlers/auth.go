@@ -1,12 +1,10 @@
 package handlers
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"familytree/internal/auth"
 	"familytree/internal/models"
-	"io"
 	"log"
 	"net/http"
 
@@ -28,30 +26,21 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Читаем тело запроса для логирования
-	log.Println("📌 Тело запроса перед декодированием:")
-	body, _ := io.ReadAll(r.Body)
-	log.Println(string(body))
-	r.Body = io.NopCloser(bytes.NewBuffer(body)) // Восстанавливаем `r.Body` для повторного чтения
-
-	// Декодируем JSON-запрос
 	var user struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
+	// Декодируем JSON-запрос
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		log.Println("❌ Ошибка декодирования JSON:", err)
 		return
 	}
 
-	log.Println("📌 Полученные данные:", user.Username, user.Password)
-
 	// Проверяем, есть ли пользователь в базе
 	var storedPassword string
-	err = DB.QueryRow("SELECT password_hash FROM users WHERE username = $1", user.Username).Scan(&storedPassword)
+	err := DB.QueryRow("SELECT password_hash FROM users WHERE username = $1", user.Username).Scan(&storedPassword)
 	if err == sql.ErrNoRows {
 		http.Error(w, "User not found", http.StatusUnauthorized)
 		log.Println("❌ Пользователь не найден:", user.Username)
@@ -63,8 +52,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Проверяем пароль
-	log.Println("🔍 Проверяем пароль для пользователя:", user.Username)
-	if err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(user.Password)); err != nil {
+	if bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(user.Password)) != nil {
 		http.Error(w, "Invalid password", http.StatusUnauthorized)
 		log.Println("❌ Неверный пароль для:", user.Username)
 		return
@@ -74,17 +62,18 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GenerateToken(user.Username)
 	if err != nil {
 		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		log.Println("❌ Ошибка генерации JWT:", err)
 		return
 	}
 
 	// Авторизация успешна
-	log.Println("✅ Успешный вход:", user.Username)
 	w.Header().Set("Content-Type", "application/json")
-	// Отправляем токен и username клиенту
 	json.NewEncoder(w).Encode(map[string]string{
 		"token":    token,
 		"username": user.Username,
 	})
+
+	log.Println("✅ Успешный вход:", user.Username)
 }
 
 // 🔹 Функция регистрации
@@ -94,10 +83,27 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Декодируем JSON-запрос
 	var user models.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		log.Println("❌ Ошибка декодирования JSON:", err)
+		return
+	}
+
+	// Проверяем, есть ли уже пользователь с таким username
+	var exists bool
+	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", user.Username).Scan(&exists)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		log.Println("❌ Ошибка проверки существования пользователя:", err)
+		return
+	}
+
+	if exists {
+		http.Error(w, "Username already exists", http.StatusConflict)
+		log.Println("⚠️ Пользователь уже существует:", user.Username)
 		return
 	}
 
@@ -105,16 +111,40 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
+		log.Println("❌ Ошибка хеширования пароля:", err)
 		return
 	}
 
-	// Создаем пользователя
-	if err := models.CreateUser(DB, user.Username, string(hashedPassword), user.Email); err != nil {
-		log.Println("Error creating user:", err)
-		http.Error(w, "Server error", http.StatusInternalServerError)
+	// Добавляем пользователя в базу данных
+	err = models.CreateUser(DB, user.Username, string(hashedPassword), user.Email)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Username already exists", http.StatusConflict)
+		log.Println("⚠️ Пользователь уже существует:", user.Username)
+		return
+	} else if err != nil {
+		http.Error(w, "Error creating user", http.StatusInternalServerError)
+		log.Println("❌ Ошибка создания пользователя в БД:", err)
 		return
 	}
 
+	// Генерируем JWT-токен для нового пользователя
+	token, err := auth.GenerateToken(user.Username)
+	if err != nil {
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		log.Println("❌ Ошибка генерации JWT:", err)
+		return
+	}
+
+	// Возвращаем JSON-ответ с токеном
+	response := map[string]string{
+		"message":  "✅ User registered successfully",
+		"token":    token,
+		"username": user.Username,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("✅ User registered successfully"))
+	json.NewEncoder(w).Encode(response)
+
+	log.Println("✅ Успешная регистрация пользователя:", user.Username)
 }
